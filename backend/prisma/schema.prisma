@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id                String    @id @default(uuid())
+  slug              String    @unique
+  businessName      String
+  ownerName         String
+  ownerEmail        String    @unique
+  ownerPhone        String
+  whatsappNumber    String?
+  n8nWebhookSecret  String    @default(uuid())
+
+  plan              String    @default("free")
+  status            String    @default("active")
+  monthlyPrice      Float     @default(0)
+  subscriptionDate  DateTime  @default(now())
+  expiresAt         DateTime?
+
+  messageCount      Int       @default(0)
+  messageLimit      Int       @default(1000)
+
+  logoUrl           String?
+  primaryColor      String    @default("#3B82F6")
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  admins            Admin[]
+  customers         Customer[]
+  systemSettings    SystemSettings[]
+
+  @@index([slug])
+  @@index([ownerEmail])
+}
+
+model SuperAdmin {
+  id          String   @id @default(uuid())
+  username    String   @unique
+  email       String   @unique
+  password    String
+  fullName    String
+  createdAt   DateTime @default(now())
+
+  @@index([username])
+  @@index([email])
+}
+
+model Admin {
+  id          String   @id @default(uuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  adminId     String   @unique
+  fullName    String
+  firstName   String
+  lastName    String
+  phoneNumber String
+  email       String
+  password    String
+  isOwner     Boolean  @default(false)
+  pushToken   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+
+  @@index([adminId])
+  @@index([email])
+  @@index([businessId])
+  @@unique([businessId, email])
+}
+
+model Customer {
+  id              String         @id @default(uuid())
+  businessId      String
+  business        Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  phoneNumber     String
+  whatsappName    String?
+  firstContact    DateTime       @default(now())
+  lastContact     DateTime       @updatedAt
+  totalMessages   Int            @default(0)
+  conversations   Conversation[]
+
+  @@unique([businessId, phoneNumber])
+  @@index([businessId])
+  @@index([phoneNumber])
+}
+
+model Conversation {
+  id                 String    @id @default(uuid())
+  customerId         String
+  customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  startedAt          DateTime  @default(now())
+  endedAt            DateTime?
+  satisfactionRating Int?
+  liked              Boolean?
+  totalMessages      Int       @default(0)
+  chatLogs           ChatLog[]
+
+  @@index([customerId])
+  @@index([startedAt])
+}
+
+model ChatLog {
+  id              String       @id @default(uuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  messageId       String       @unique
+  timestamp       DateTime     @default(now())
+  sender          String
+  messageType     String
+  content         String       @db.Text
+  metadata        Json?
+
+  @@index([conversationId])
+  @@index([timestamp])
+}
+
+model OTP {
+  id         String   @id @default(uuid())
+  email      String
+  code       String
+  purpose    String
+  businessId String?
+  expiresAt  DateTime
+  used       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([email, code])
+}
+
+model SystemSettings {
+  id          String    @id @default(uuid())
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  key         String
+  value       String
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([businessId, key])
+  @@index([key])
+  @@index([businessId])
+}
+
+model UsageLog {
+  id           String   @id @default(uuid())
+  businessId   String
+  date         DateTime @default(now())
+  messageCount Int      @default(0)
+
+  @@unique([businessId, date])
+  @@index([businessId, date])
+}
